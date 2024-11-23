@@ -3,6 +3,14 @@
 #include <stdint.h>
 #include <math.h>
 
+const uint32_t SampleRate = 44100;
+const uint32_t NumSamples = SampleRate*120; //numSamples = samplerate * duration in S
+const uint16_t NumChannels = 1;
+const uint16_t BitsPerSample = 16;
+const uint32_t ByteRate = SampleRate * NumChannels * BitsPerSample/8;
+const uint16_t BlockAlign = NumChannels * BitsPerSample/8;
+const uint32_t SubChunk2Size = NumSamples * NumChannels * BitsPerSample/8;
+
 typedef struct {
 //char is 8 bits/1 byte
 uint8_t chunkID[4]; //BIG ENDIAN 0x52494646 ASCII of "RIFF"
@@ -20,7 +28,7 @@ uint8_t bitsPerSample[2]; //8 bits = 8, 16 bits = 16, etc
 uint8_t subChunk2ID[4]; //BIG ENDIAN, contains letters "data" or 0x64617461
 uint8_t subChunk2Size[4]; //== NumSamples * NumChannels * BitsPerSample/8. This is the number of bytes in the data
 
-}wavHeader;
+} wavHeader;
 
 void writeHeader(FILE *wavfile, wavHeader wavh){
 
@@ -49,15 +57,36 @@ fwrite(wavh.bitsPerSample, sizeof(uint8_t), 2, wavfile);
 fwrite(wavh.subChunk2ID, sizeof(uint8_t), 4, wavfile);
 
 fwrite(wavh.subChunk2Size, sizeof(uint8_t), 4, wavfile);
+
+}
+
+void writeSquare(FILE *wavfile, int frequency) {
+    //start at an offset of 44 bytes (just after the header)
+    fseek(wavfile, 44, SEEK_SET);
+    //write a frequency hz (frequency oscillations per second) square wave
+    //one oscillation is just "up, down, up"
+  
+
+}
+
+void writeNoise(FILE *wavfile) {
+    //start at offset of 44 bytes
+    fseek(wavfile, 44, SEEK_SET);
+    int sampleAbsMax = 25000;
+    //16 bit SIGNED int
+    for (int i = 0; i < NumSamples; i++) {
+        int16_t sample = rand() % (sampleAbsMax + 1);
+        if (i % 2 == 0) {
+        fwrite(&sample, sizeof(int16_t), 2, wavfile);
+        } else {
+            sample = ~sample +1; //negate sample
+            fwrite(&sample, sizeof(int16_t), 2, wavfile);
+        }
+    }
+    
+
 }
 int main() {
-const uint32_t SampleRate = 44100;
-const uint32_t NumSamples = SampleRate*120; //numSamples = samplerate * duration in S
-const uint16_t NumChannels = 1;
-const uint16_t BitsPerSample = 16;
-const uint32_t ByteRate = SampleRate * NumChannels * BitsPerSample/8;
-const uint16_t BlockAlign = NumChannels * BitsPerSample/8;
-const uint32_t SubChunk2Size = NumSamples * NumChannels * BitsPerSample/8;
 
 wavHeader wavh; //declare a new  wav header struct to write from and populate it
 wavh.chunkID[0] = (uint8_t)'R';
@@ -77,9 +106,9 @@ wavh.format[2] = (uint8_t)'V';
 wavh.format[3] = (uint8_t)'E';
 
 wavh.subChunk1ID[0] = (uint8_t)'f';
-wavh.subChunk1ID[0] = (uint8_t)'m';
-wavh.subChunk1ID[0] = (uint8_t)'t';
-wavh.subChunk1ID[0] = (uint8_t)' ';
+wavh.subChunk1ID[1] = (uint8_t)'m';
+wavh.subChunk1ID[2] = (uint8_t)'t';
+wavh.subChunk1ID[3] = (uint8_t)' ';
 
 wavh.subChunk1Size[0] = 16; //0x10
 
@@ -117,9 +146,12 @@ wavh.subChunk2Size[2] = 40; //0x28
 
 //create wav file
 FILE *wavfile = fopen("sound.wav", "wb");
-writeHeader(wavfile, wavh);
 
-//once we write all of the info in the header to the file, we can begin writing data immediately
+writeHeader(wavfile, wavh);
+//at this point is the file pointer still pointed to the end of the header??
+writeNoise(wavfile);
+
+
 
 //high level, i need to loop through the rest of the samples and write SIGNED bits to them between -32,768 and +32,767
 
