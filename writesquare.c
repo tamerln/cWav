@@ -68,42 +68,34 @@ fwrite(wavh.subChunk2Size, sizeof(uint8_t), 4, wavfile);
 void writeSquare(FILE *wavfile, int frequency, float amplitude) {
      //44100hz == 44.1kHz sample rate = 44100 samples per second
     //432hz square wave = 432 oscillations per second
-    //how many samples per oscillation? 44100/432 = 102
+    //how many samples per oscillation? 44100/102 = 102
     int samplesPerOscillation = SampleRate/frequency;
     //how many oscillations in the whole track? NumSamples/102 
     int oscillationsPerTrack = NumSamples/samplesPerOscillation;
    
-   //need to find a way to get these values into 2 element little endian 8 bit int arrays
+   
     int16_t peak = (int16_t) (INT16_MAX/2)*amplitude; //max height for signed 16 bit int
     int16_t trough = ~peak +1; //square wave so just negate peak amplitude to get trough
     
-     //IMPORTANT: samples are 16 bit LITTE ENDIAN, so swap to write correctly 
-    swapEndian16(peak);
-    swapEndian16(trough);
-
-    int8_t peakArr[samplesPerOscillation*2];//each sample is 2 8 bit signed ints in little endian order making 1 16 bit singed int
-    int8_t troughArr [samplesPerOscillation*2]; 
-    //fill oscillation arrays
-   
-    for (int i = 0; i < samplesPerOscillation*2; i++) {
-
+    //SAMPLES ARE LITTLE ENDIAN
+    swapEndian16(peak); 
+    swapEndian16(trough); 
+    int16_t peakArr[samplesPerOscillation];//each sample is 2 8 bit signed ints in little endian order making 1 16 bit singed int
+    int16_t troughArr [samplesPerOscillation]; 
+    //fill trough and peak oscillation arrays
+    for (int i = 0; i < samplesPerOscillation; i++) {
         peakArr[i] = peak;
     }
-    for (int i = 0; i < samplesPerOscillation*2; i++) {
-        //trough arr[i] = first little endian digit of trough
-        //trough arr[i+1] = second little endian digit of trough
+    for (int i = 0; i < samplesPerOscillation; i++) {
         troughArr[i] = trough;
     }
      //start at an offset of 44 bytes (just after the header)
     fseek(wavfile, 44, SEEK_SET);
-    //write a frequency hz (frequency oscillations per second) square wave
-    //one oscillation is just "up, down"
 
-   
     for (int i = 0; i < oscillationsPerTrack; i++) {
         //write 1 oscillation
-        fwrite(peakArr, sizeof(int8_t), samplesPerOscillation, wavfile);
-        fwrite(troughArr, sizeof(int8_t), samplesPerOscillation, wavfile);
+        fwrite(peakArr, sizeof(int16_t), samplesPerOscillation/2, wavfile);
+        fwrite(troughArr, sizeof(int16_t), samplesPerOscillation/2, wavfile);
      
     }
 
@@ -118,6 +110,7 @@ void writeNoise(FILE *wavfile) {
     //16 bit SIGNED int
     for (int i = 0; i < NumSamples; i++) {
         int16_t sample = rand() % (sampleAbsMax + 1);
+        swapEndian16(sample); //convert sample to little endian
         if (i % 2 == 0) {
         fwrite(&sample, sizeof(int16_t), 2, wavfile);
         } else {
@@ -193,7 +186,7 @@ writeHeader(wavfile, wavh);
 //at this point is the file pointer still pointed to the end of the header??
 //writeNoise(wavfile);
 
-writeSquare(wavfile, 432, 0.70);
+writeSquare(wavfile, 432, 0.99);
 
 
 
